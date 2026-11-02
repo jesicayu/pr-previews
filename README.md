@@ -19,7 +19,32 @@ npm run typecheck
 
 ## Authentication
 
-The service chooses its Namespace credential from the environment
+### Partner credentials: managing customers' tenants
+
+[src/partner.ts](src/partner.ts) signs partner tokens with the platform's ES256 key and creates
+the partner client. Its configuration is kept outside the repository, in
+`~/.namespace-partner/partner.json` (or the file `PARTNER_CONFIG` names):
+
+```json
+{
+  "partnerId": "user_…",
+  "issuer": "https://…",
+  "keyId": "…",
+  "privateKeyPath": "~/.namespace-partner/private_key.pem"
+}
+```
+
+Each customer is a GitHub account or organization and gets one tenant, keyed by the account's
+numeric ID (`github:<id>`) and labelled `app=pr-previews`.
+
+```bash
+npm run check-partner                 # list the partner account's tenants (read-only)
+npm run ensure-tenant -- <github-login>  # create or find that account's tenant, then call inside it
+```
+
+### Your own workspace: development without tenants
+
+For work in your own workspace, the service chooses its Namespace credential from the environment
 ([src/namespace.ts](src/namespace.ts)):
 
 - `NAMESPACE_TOKEN` set: uses that token, such as one from `nsc auth generate-dev-token`. Works on
