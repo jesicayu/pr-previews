@@ -50,3 +50,16 @@ For work in your own workspace, the service chooses its Namespace credential fro
 - `NAMESPACE_TOKEN` set: uses that token, such as one from `nsc auth generate-dev-token`. Works on
   any machine, but development tokens expire after about an hour and are not renewed.
 - Otherwise: uses this machine's `nsc login`, which the SDK renews automatically.
+
+## GitHub App
+
+Customers connect their GitHub account or organization by installing the platform's GitHub App.
+The app's webhooks go to a [smee.io](https://smee.io) channel, which relays them to the backend on
+this machine.
+
+```bash
+npm run register-app -- <app-name>   # once: open http://localhost:4100 and create the app
+```
+
+The app's ID, private key, and webhook secret are saved outside the repository, in
+`~/.pr-previews/`.

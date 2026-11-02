@@ -8,7 +8,8 @@
     "check-auth": "node src/check-auth.ts",
     "typecheck": "tsc",
     "check-partner": "node src/check-partner.ts",
-    "ensure-tenant": "node src/ensure-tenant.ts"
+    "ensure-tenant": "node src/ensure-tenant.ts",
+    "register-app": "node src/register-app.ts"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.16.0",
