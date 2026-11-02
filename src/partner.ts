@@ -53,10 +53,11 @@ export const partner = createIAMClient({ tokenSource: partnerTokenSource });
 const platformLabel = { name: "app", value: "pr-previews" };
 
 // A customer's tenant, keyed by their GitHub account's numeric ID, which never changes even when
-// the account is renamed. Returns the existing tenant when there is one.
+// the account is renamed. The prefix keeps our IDs apart from other apps' in the shared partner
+// account. Returns the existing tenant when there is one.
 export async function ensureCustomerTenant(githubAccountId: number, githubLogin: string) {
   const { tenant } = await partner.tenants.ensureTenantForExternalAccount({
-    externalAccountId: `github:${githubAccountId}`,
+    externalAccountId: `pr-previews:github:${githubAccountId}`,
     visibleName: githubLogin,
     labels: [platformLabel],
   });

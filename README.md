@@ -35,7 +35,7 @@ the partner client. Its configuration is kept outside the repository, in
 ```
 
 Each customer is a GitHub account or organization and gets one tenant, keyed by the account's
-numeric ID (`github:<id>`) and labelled `app=pr-previews`.
+numeric ID (`pr-previews:github:<id>`) and labelled `app=pr-previews`.
 
 ```bash
 npm run check-partner                 # list the partner account's tenants (read-only)
