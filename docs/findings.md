@@ -41,8 +41,10 @@ with `Authorization: Bearer <tenant token>`, then opened in a browser by a logge
 
 - The tenant token itself is the ingress key for both runtimes; no separate ingress token is
   needed. The platform can check any preview with the token it already uses.
-- Private previews admit only members of the tenant that owns them. Tenants created by a partner
-  have no members, and the SDK has no call to add any (the membership service only lists members).
+- Private previews admit only members of the tenant that owns them. The only member of a tenant
+  created by a partner is the partner account itself, as owner (checked with `ListTenantMembers`
+  on two customers' tenants). The customer who installed the app is not a member, and the SDK has
+  no call to add one (the membership service only lists members).
   So in a customer's tenant, private previews are reachable only from code that holds a tenant
   token.
 - To let people view previews, the options are public routes (instances: `httpMatchRule` with

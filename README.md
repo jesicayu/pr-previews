@@ -91,8 +91,8 @@ can use different runtimes.
 
 ## Viewing previews
 
-Previews are private: Namespace only admits tenant members, and tenants created by the partner
-account have none. The server ([src/server.ts](src/server.ts)) lets people in instead. A preview's
+Previews are private: Namespace only admits tenant members, and the only member of a tenant created
+by the partner account is the partner account itself, not the customer. The server ([src/server.ts](src/server.ts)) lets people in instead. A preview's
 link is `/_pr-previews/open/<tenant>/<instance|devbox>/<id>`. The viewer signs in with GitHub through
 the GitHub App, the server checks that they can read the preview's repository, and then forwards
 their requests to the private preview, adding the tenant token in `x-nsc-ingress-auth`.
