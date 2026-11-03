@@ -47,4 +47,24 @@ with `Authorization: Bearer <tenant token>`, then opened in a browser by a logge
   token.
 - To let people view previews, the options are public routes (instances: `httpMatchRule` with
   `doesNotRequireAuth`; Devbox URLs document only `private` and `workspace` access) or a proxy in the
-  platform that checks the viewer's GitHub access and adds the token. Neither is built yet.
+  platform that checks the viewer's GitHub access and adds the token. We built the proxy (section 3).
+
+## 3. Viewing previews through the platform (2026-11-03)
+
+The platform's server, behind a Cloudflare quick tunnel, signed a viewer in with GitHub, checked
+they could read the repository, and forwarded to an nginx instance and to a Devbox in the customer's
+tenant. Both loaded in the browser of a viewer with no access to the tenant.
+
+- The same proxy works for both runtimes: both accept the tenant token in `x-nsc-ingress-auth`.
+- Devboxes stop when idle. A stopped Devbox started in about 4 seconds and its service restarted on
+  its own, but files outside `/workspaces` were gone: a page served from `/tmp` returned 404 after
+  the restart. Checkouts and build output must live under `/workspaces`.
+- Waking a stopped Devbox implicitly, through `exposedPorts.list`, hung for over three minutes in
+  one attempt; an explicit `devbox.start()` worked. The proxy starts stopped Devboxes explicitly.
+- `exposedPorts.list` failed once with `Premature close` right after a Devbox was created, then
+  worked on retry.
+- Serving every preview from one address and choosing it by cookie needs `Vary: Cookie`. nginx sends
+  `Last-Modified` without `Cache-Control`, so a browser reused one preview's cached page for
+  another until the proxy added it.
+- A quick tunnel's address changes on every start, and GitHub only redirects sign-ins to registered
+  URIs, so each restart means updating the GitHub App's redirect URI.

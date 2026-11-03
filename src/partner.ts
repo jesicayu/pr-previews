@@ -63,3 +63,22 @@ export async function ensureCustomerTenant(githubAccountId: number, githubLogin:
   });
   return tenant!;
 }
+
+// Whether a tenant is one of ours. The list is refreshed at most once a minute.
+let platformTenants = { ids: new Set<string>(), fetchedAt: 0 };
+
+export async function isPlatformTenant(tenantId: string): Promise<boolean> {
+  if (Date.now() - platformTenants.fetchedAt > 60_000) {
+    const ids = new Set<string>();
+    let cursor = "";
+    do {
+      const page = await partner.tenants.listTenants({ limit: 100, cursor });
+      for (const t of page.tenants) {
+        if (t.labels.some((l) => l.name === platformLabel.name && l.value === platformLabel.value)) ids.add(t.id);
+      }
+      cursor = page.cursor;
+    } while (cursor);
+    platformTenants = { ids, fetchedAt: Date.now() };
+  }
+  return platformTenants.ids.has(tenantId);
+}
