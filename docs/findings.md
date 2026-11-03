@@ -91,3 +91,23 @@ the GitHub App's installation token to fetch the code.
   exists`) because it is not safe to run twice. The fix is in the customer's build command
   (`rm -rf data && …`), not the platform. This is the cost of reuse: faster rebuilds, but leftover
   state that a fresh instance never has.
+
+## 5. Real pull requests through the GitHub App (2026-11-03)
+
+Two tendu pull requests, #2 (`runtime: instance`) and #3 (`runtime: devbox`), were deployed from
+real GitHub webhooks relayed by smee, then pushed to again.
+
+- Webhook signatures verified through smee; no body changes on the way.
+- Instance: first deploy 22 s, a later push 75 s (cold build 68 s). The new instance replaced the
+  old one, whose URL then returned 404.
+- Devbox: a later push took 43 s on the same Devbox (checkout 18 s, build 22 s, start 3 s).
+- Calls to a Devbox's agent failed with `Premature close` often enough to break most Devbox deploys:
+  once during a long `shell()` build, once in `executions.startShell()`, and once in
+  `services.create()`. The Devbox was fine; the next call worked. What fixed it:
+  - Run long commands with `executions.startShell()` and poll `status()`, instead of one `shell()`
+    call that holds a stream open for the whole build.
+  - Retry agent calls that fail with `Premature close`, and treat `not_found` / `already_exists`
+    on a retry as success.
+  - Never retry `startShell()` blindly (the SDK warns a failed start may have run); first look in
+    `executions.list()` for an execution that began after the attempt.
+  Instances had no such failures: their deploy is a few unary calls to the compute API.
