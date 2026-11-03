@@ -111,3 +111,8 @@ real GitHub webhooks relayed by smee, then pushed to again.
   - Never retry `startShell()` blindly (the SDK warns a failed start may have run); first look in
     `executions.list()` for an execution that began after the attempt.
   Instances had no such failures: their deploy is a few unary calls to the compute API.
+- Viewing had the same problem: the proxy looked up the preview on every request, and for a
+  Devbox that lookup (`exposedPorts.list`) goes through the Devbox's agent. A page load made about
+  20 lookups at once, some failed with `Premature close`, and the page loaded with missing files.
+  The proxy now remembers each lookup for a minute and retries dropped calls. Instance lookups go
+  to the compute API (`describeInstance`) and never failed.

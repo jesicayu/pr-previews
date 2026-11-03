@@ -6,7 +6,7 @@ import { fromBearerToken } from "@namespacelabs/sdk/auth";
 import { createDevboxClient, type Devbox } from "@namespacelabs/sdk/devbox";
 import { installationToken } from "./github-app.ts";
 import type { PreviewConfig } from "./preview-config.ts";
-import { previewLabels, tenantToken, waitForHttp, type PullRequest } from "./previews.ts";
+import { previewLabels, retrying, tenantToken, waitForHttp, type PullRequest } from "./previews.ts";
 
 const checkout = "/workspaces/app";
 
@@ -19,18 +19,6 @@ async function devboxes(pr: PullRequest) {
 
 async function findDevbox(client: ReturnType<typeof createDevboxClient>, pr: PullRequest): Promise<Devbox | undefined> {
   for await (const devbox of client.devboxes.iterate()) if (devbox.name === devboxName(pr)) return devbox;
-}
-
-// Calls to a Devbox sometimes fail with "Premature close" when the connection drops; retry those.
-async function retrying<T>(call: () => Promise<T>): Promise<T> {
-  for (let attempt = 1; ; attempt++) {
-    try {
-      return await call();
-    } catch (error) {
-      if (attempt >= 5 || !String(error).includes("Premature close")) throw error;
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-    }
-  }
 }
 
 // Starting a command can fail with "Premature close" after the Devbox already started it, so

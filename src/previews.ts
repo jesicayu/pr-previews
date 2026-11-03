@@ -49,6 +49,18 @@ export async function waitForHttp(url: string, tenantId: string, timeoutMs = 120
 }
 
 // Tenant tokens are reused until fewer than five minutes of validity remain.
+// Calls to a Devbox sometimes fail with "Premature close" when the connection drops; retry those.
+export async function retrying<T>(call: () => Promise<T>): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await call();
+    } catch (error) {
+      if (attempt >= 5 || !String(error).includes("Premature close")) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+  }
+}
+
 const tokens = new Map<string, { token: string; expiresAt: number }>();
 
 export async function tenantToken(tenantId: string): Promise<string> {
@@ -63,7 +75,21 @@ export async function tenantToken(tenantId: string): Promise<string> {
   return bearerToken;
 }
 
-export async function findPreview(tenantId: string, kind: PreviewKind, id: string): Promise<Preview | undefined> {
+// The proxy looks up the preview for every request it forwards, and one page load makes dozens.
+// Remember each lookup for a minute, and share it between requests made at the same time.
+const lookups = new Map<string, { at: number; preview: Promise<Preview | undefined> }>();
+
+export function findPreview(tenantId: string, kind: PreviewKind, id: string): Promise<Preview | undefined> {
+  const key = `${tenantId}/${kind}/${id}`;
+  const cached = lookups.get(key);
+  if (cached && Date.now() - cached.at < 60_000) return cached.preview;
+  const preview = lookUpPreview(tenantId, kind, id);
+  lookups.set(key, { at: Date.now(), preview });
+  preview.catch(() => lookups.delete(key));
+  return preview;
+}
+
+async function lookUpPreview(tenantId: string, kind: PreviewKind, id: string): Promise<Preview | undefined> {
   // The partner account also holds other apps' tenants; never act in those.
   if (!(await isPlatformTenant(tenantId))) return undefined;
   const tokenSource = fromBearerToken(await tenantToken(tenantId));
@@ -79,11 +105,11 @@ export async function findPreview(tenantId: string, kind: PreviewKind, id: strin
   } else {
     const client = createDevboxClient({ tokenSource });
     try {
-      const devbox = await client.devboxes.get(id);
+      const devbox = await retrying(() => client.devboxes.get(id));
       labels = devbox.info.labels;
       // Idle Devboxes stop. Start one explicitly: the port lookup's implicit start hung in testing.
-      if (devbox.info.state !== "running") await devbox.start();
-      url = (await devbox.exposedPorts.list())[0]?.url.replace(/\/$/, "");
+      if (devbox.info.state !== "running") await retrying(() => devbox.start());
+      url = (await retrying(() => devbox.exposedPorts.list()))[0]?.url.replace(/\/$/, "");
     } finally {
       client.close();
     }
