@@ -1,12 +1,7 @@
 // "Sign in with GitHub" through the platform's GitHub App, and the check that decides who may see
 // a preview: whoever can read the repository on GitHub.
-import { readFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
+import { githubApp as app } from "./github-app.ts";
 
-const app: { clientId: string; clientSecret?: string } = JSON.parse(
-  readFileSync(join(homedir(), ".pr-previews", "github-app.json"), "utf8"),
-);
 const clientSecret = process.env.GITHUB_CLIENT_SECRET ?? app.clientSecret;
 if (!clientSecret) {
   throw new Error("Generate a client secret in the GitHub App's settings and save it as clientSecret in ~/.pr-previews/github-app.json");

@@ -64,6 +64,31 @@ npm run register-app -- <app-name>   # once: open http://localhost:4100 and crea
 The app's ID, private key, and webhook secret are saved outside the repository, in
 `~/.pr-previews/`.
 
+## Previews
+
+Installing the app on an account creates that account's tenant ([src/webhooks.ts](src/webhooks.ts));
+uninstalling it removes the tenant. When a pull request is opened, reopened, or pushed to, the
+backend reads `.pr-previews.yml` at the pull request's commit, deploys the preview, and keeps one
+comment on the pull request up to date with its link. Closing the pull request removes the preview.
+Pull requests from forks are skipped.
+
+```yaml
+runtime: instance        # or devbox
+port: 3000               # the HTTP port the app listens on
+dockerfile: Dockerfile   # instance: what the remote builder builds
+build: npm ci && npm run build   # devbox: run in the checkout on every push
+start: npm start                 # devbox: runs as a service, with PORT set
+```
+
+| | Instance ([src/instance-runtime.ts](src/instance-runtime.ts)) | Devbox ([src/devbox-runtime.ts](src/devbox-runtime.ts)) |
+|---|---|---|
+| Build | `nsc build --push` on Namespace's remote builder, as the customer's tenant | `build` runs on the Devbox, in the checkout |
+| Runs | The image, as a container on a new instance (2 vCPU, 4 GB, 24 h deadline) | `start`, as a service on the Devbox |
+| On each push | A new instance replaces the previous one | The same Devbox fetches the new commit and rebuilds |
+
+The runtime is read at each pull request's commit, so different pull requests in one repository
+can use different runtimes.
+
 ## Viewing previews
 
 Previews are private: Namespace only admits tenant members, and tenants created by the partner

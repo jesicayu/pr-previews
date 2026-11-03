@@ -7,8 +7,12 @@
 import { randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { Readable } from "node:stream";
+import SmeeClient from "smee-client";
+import { githubApp, listInstallations, verifyWebhook } from "./github-app.ts";
 import { authorizeUrl, canReadRepo, exchangeCode, githubLogin } from "./github-auth.ts";
+import { ensureCustomerTenant } from "./partner.ts";
 import { findPreview, tenantToken, type Preview, type PreviewKind } from "./previews.ts";
+import { handleWebhook } from "./webhooks.ts";
 
 const port = Number(process.env.PORT ?? 4200);
 const publicUrl = (process.env.PUBLIC_URL ?? `http://localhost:${port}`).replace(/\/$/, "");
@@ -109,6 +113,20 @@ async function handle(req: IncomingMessage, res: ServerResponse) {
   const jar = cookies(req);
   const session = sessions.get(jar.pr_session ?? "");
 
+  // GitHub's events, relayed by smee. Acknowledge at once and do the work in the background.
+  if (url.pathname === "/_pr-previews/webhook" && req.method === "POST") {
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    if (!verifyWebhook(body, req.headers["x-hub-signature-256"] as string | undefined)) {
+      console.error("webhook with an invalid signature ignored");
+      return send(res, 401, "invalid signature");
+    }
+    const event = req.headers["x-github-event"] as string;
+    send(res, 202, "accepted");
+    handleWebhook(event, JSON.parse(body), publicUrl).catch((error) => console.error(`webhook ${event}:`, error));
+    return;
+  }
+
   // The link posted on a pull request: /_pr-previews/open/<tenant>/<kind>/<id>
   if (url.pathname.startsWith("/_pr-previews/open/")) {
     const ref = url.pathname.slice("/_pr-previews/open/".length);
@@ -153,7 +171,20 @@ createServer((req, res) => {
     if (!res.headersSent) send(res, 500, `pr-previews error: ${error.message}`);
     else res.destroy();
   });
-}).listen(port, () => {
+}).listen(port, async () => {
   console.log(`pr-previews listening on http://localhost:${port}, public at ${publicUrl}`);
   console.log(`GitHub App callback URL must include ${callbackUrl}`);
+
+  // Installations made while the server wasn't running sent events nobody received.
+  for (const installation of await listInstallations()) {
+    const tenant = await ensureCustomerTenant(installation.account.id, installation.account.login);
+    console.log(`installation on ${installation.account.login}: tenant ${tenant.id}`);
+  }
+  const smee = new SmeeClient({
+    source: githubApp.webhookProxyUrl,
+    target: `http://localhost:${port}/_pr-previews/webhook`,
+    logger: { info: () => {}, error: console.error },
+  });
+  await smee.start();
+  console.log(`receiving GitHub webhooks from ${githubApp.webhookProxyUrl}`);
 });

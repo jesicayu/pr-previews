@@ -14,7 +14,8 @@
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.16.0",
-    "@namespacelabs/sdk": "^1.5.2"
+    "@namespacelabs/sdk": "^1.5.2",
+    "smee-client": "^5.0.0"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

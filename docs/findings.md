@@ -68,3 +68,26 @@ tenant. Both loaded in the browser of a viewer with no access to the tenant.
   another until the proxy added it.
 - A quick tunnel's address changes on every start, and GitHub only redirects sign-ins to registered
   URIs, so each restart means updating the GitHub App's redirect URI.
+
+## 4. Deploying tendu with each runtime (2026-11-03)
+
+The platform deployed tendu (`main` at `9e2a572`) in the `jesicayu` tenant with each runtime, using
+the GitHub App's installation token to fetch the code.
+
+| | Instance | Devbox |
+|---|---|---|
+| Build | `nsc build --push` on the remote builder: 62 s cold, 6 s with the builder's cache | `npm ci && npm run db:setup && npm run build` on the Devbox: 51 s first time, 29 s on a later push |
+| Start to a working URL | 6.5 s (instance created, image pulled, app answering) | 3 s (service restarted) |
+| Total, first deploy | about 70 s cold, 12 s warm | 61 s (checkout 7 s) |
+| Total, a later push | a new instance each time: same as above | 33 s, same Devbox |
+
+- `nsc build` acts as the tenant when `NSC_TOKEN_FILE` points to a file holding a tenant token. The
+  image goes to the tenant's registry (`nscr.io/<tenant registry>/…`), and the tenant's instances
+  pull it with no extra credentials. Keep the token file outside the build context.
+- `nsc build --file` with an absolute path failed on the remote builder; run it from the source
+  folder with a relative path.
+- A reused Devbox keeps ignored files between pushes. tendu's SQLite database (`data/tendu.db`)
+  survived, and `npm run db:setup` failed the second time (`index steps_slug_unique already
+  exists`) because it is not safe to run twice. The fix is in the customer's build command
+  (`rm -rf data && …`), not the platform. This is the cost of reuse: faster rebuilds, but leftover
+  state that a fresh instance never has.

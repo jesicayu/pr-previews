@@ -64,6 +64,16 @@ export async function ensureCustomerTenant(githubAccountId: number, githubLogin:
   return tenant!;
 }
 
+// Removes a customer's tenant, and with it everything running in it. Irreversible.
+export async function removeCustomerTenant(githubAccountId: number) {
+  const { tenants } = await partner.tenants.listTenants({ externalAccountId: `pr-previews:github:${githubAccountId}` });
+  for (const t of tenants) {
+    if (t.labels.some((l) => l.name === platformLabel.name && l.value === platformLabel.value)) {
+      await partner.tenants.removeTenant({ tenantId: t.id });
+    }
+  }
+}
+
 // Whether a tenant is one of ours. The list is refreshed at most once a minute.
 let platformTenants = { ids: new Set<string>(), fetchedAt: 0 };
 

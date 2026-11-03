@@ -13,12 +13,40 @@ export interface Preview {
   url: string; // the private Namespace URL, which needs x-nsc-ingress-auth
 }
 
+// A pull request whose preview the platform manages, in its customer's tenant.
+export interface PullRequest {
+  installationId: number;
+  tenantId: string;
+  owner: string;
+  repo: string;
+  number: number;
+  sha: string;
+}
+
 // Labels every preview carries, on instances and Devboxes alike.
-export const previewLabels = (owner: string, repo: string) => ({
+export const previewLabels = (pr: PullRequest): Record<string, string> => ({
   app: "pr-previews",
-  "github.owner": owner,
-  "github.repo": repo,
+  "github.owner": pr.owner,
+  "github.repo": pr.repo,
+  "github.pr": String(pr.number),
 });
+
+// Waits until a preview's app answers through Namespace's ingress, using the tenant token.
+export async function waitForHttp(url: string, tenantId: string, timeoutMs = 120_000) {
+  const deadline = Date.now() + timeoutMs;
+  let last = "";
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(url, { headers: { "x-nsc-ingress-auth": `Bearer ${await tenantToken(tenantId)}` } });
+      if (response.status < 500) return;
+      last = `HTTP ${response.status}`;
+    } catch (error) {
+      last = (error as Error).message;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+  }
+  throw new Error(`The app did not answer on ${url} within ${timeoutMs / 1000}s (${last})`);
+}
 
 // Tenant tokens are reused until fewer than five minutes of validity remain.
 const tokens = new Map<string, { token: string; expiresAt: number }>();
